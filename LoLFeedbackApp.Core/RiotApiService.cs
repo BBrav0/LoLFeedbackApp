@@ -69,7 +69,6 @@ namespace LoLFeedbackApp.Core
             try
             {
                 var url = $"{AMERICAS_URL}/lol/match/v5/matches/by-puuid/{puuid}/ids?type=ranked&start=0&count={count}";
-                _statusBox.AppendText($"Making request to: {url}\r\n");
 
                 var response = await _httpClient.GetAsync(url);
                 var content = await response.Content.ReadAsStringAsync();
@@ -79,7 +78,6 @@ namespace LoLFeedbackApp.Core
                     throw new Exception($"Failed to get match history. Status: {response.StatusCode}, Response: {content}");
                 }
 
-                _statusBox.AppendText($"Match history response: {content}\r\n");
                 return JsonSerializer.Deserialize<List<string>>(content) ?? new List<string>();
             }
             catch (Exception ex)
@@ -94,7 +92,7 @@ namespace LoLFeedbackApp.Core
             try
             {
                 var url = $"{AMERICAS_URL}/lol/match/v5/matches/{matchId}";
-                _statusBox.AppendText($"Fetching match details from: {url}\r\n");
+                _statusBox.AppendText($"\r\n");
 
                 var response = await _httpClient.GetAsync(url);
                 var content = await response.Content.ReadAsStringAsync();
