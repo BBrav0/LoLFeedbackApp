@@ -126,105 +126,119 @@ namespace LoLFeedbackApp.Core
             var matches = await _riotApiService.GetMatchHistory(puuid);
             if (matches != null && matches.Any())
             {
-                var latestMatchId = matches.First();
-                var matchDetails = await _riotApiService.GetMatchDetails(latestMatchId);
-                
-                if (matchDetails != null)
+                // Take the last 5 matches
+                var recentMatches = matches.Take(5).ToList();
+                statusBox.Text = "Analyzing your last 5 ranked matches...\r\n\r\n";
+
+                foreach (var matchId in recentMatches)
                 {
-                    var team1 = matchDetails.Info.Participants.Take(5).ToList();
-                    var team2 = matchDetails.Info.Participants.Skip(5).Take(5).ToList();
-
-                    // Find which team the player is on
-                    var playerTeam = team1.Any(p => p.Puuid == puuid) ? team1 : team2;
-                    var enemyTeam = playerTeam == team1 ? team2 : team1;
-
-                    // Determine max widths for each stat column for proper alignment
-                    int maxNameLen = Math.Max("Summoner (Champion)".Length, matchDetails.Info.Participants.Max(p => $"{p.SummonerName} ({p.ChampionName})".Length)) + 2;
-                    int maxKDALen = Math.Max("KDA".Length, matchDetails.Info.Participants.Max(p => p.KDA.Length)) + 2;
-                    int maxDamageLen = Math.Max("Damage Dealt".Length, matchDetails.Info.Participants.Max(p => p.TotalDamageDealtToChampions.ToString("N0").Length)) + 2;
-
-                    // Header
-                    string playerTeamStatus = playerTeam.First().TeamId == 100 ? 
-                        (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 100)?.Win == true ? "(Won)" : "(Lost)") :
-                        (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 200)?.Win == true ? "(Won)" : "(Lost)");
-                    string enemyTeamStatus = playerTeam.First().TeamId == 100 ?
-                        (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 200)?.Win == true ? "(Won)" : "(Lost)") :
-                        (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 100)?.Win == true ? "(Won)" : "(Lost)");
-                    string playerTeamHeader = ($"Your Team {playerTeamStatus}").PadRight(maxNameLen + maxKDALen + maxDamageLen);
-                    string enemyTeamHeader = ($"Enemy Team {enemyTeamStatus}");
-                    statusBox.AppendText($"{playerTeamHeader}{enemyTeamHeader}\r\n");
-
-                    string separatorLine = new string('-', (maxNameLen + maxKDALen + maxDamageLen) * 2 + 4); // +4 for spacing between teams
-                    statusBox.AppendText($"{separatorLine}\r\n");
-
-                    // Store the original font to revert after bolding
-                    Font originalFont = statusBox.Font;
-                    Font boldFont = new Font(originalFont, FontStyle.Bold);
-
-                    // Player Stats
-                    for (int i = 0; i < 5; i++)
+                    var matchDetails = await _riotApiService.GetMatchDetails(matchId);
+                    var matchTimeline = await _riotApiService.GetMatchTimeline(matchId);
+                    
+                    if (matchDetails != null && matchTimeline != null)
                     {
-                        var p1 = playerTeam[i];
-                        var p2 = enemyTeam[i];
+                        // First, show the performance analysis
+                        var performanceCalculator = new PerformanceCalculation();
+                        string report = performanceCalculator.AnalyzeMatch(matchDetails, matchTimeline, puuid);
+                        statusBox.AppendText($"\n=== Match {matchId} ===\n");
+                        statusBox.AppendText(report);
 
-                        // Format Player Team Member
-                        string p1NameAndChamp = $"{p1.SummonerName} ({p1.ChampionName})";
-                        if (p1.Puuid == puuid)
+                        // Then show the detailed match stats
+                        var team1 = matchDetails.Info.Participants.Take(5).ToList();
+                        var team2 = matchDetails.Info.Participants.Skip(5).Take(5).ToList();
+
+                        // Find which team the player is on
+                        var playerTeam = team1.Any(p => p.Puuid == puuid) ? team1 : team2;
+                        var enemyTeam = playerTeam == team1 ? team2 : team1;
+
+                        // Determine max widths for each stat column for proper alignment
+                        int maxNameLen = Math.Max("Summoner (Champion)".Length, matchDetails.Info.Participants.Max(p => $"{p.SummonerName} ({p.ChampionName})".Length)) + 2;
+                        int maxKDALen = Math.Max("KDA".Length, matchDetails.Info.Participants.Max(p => p.KDA.Length)) + 2;
+                        int maxDamageLen = Math.Max("Damage Dealt".Length, matchDetails.Info.Participants.Max(p => p.TotalDamageDealtToChampions.ToString("N0").Length)) + 2;
+
+                        // Header
+                        string playerTeamStatus = playerTeam.First().TeamId == 100 ? 
+                            (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 100)?.Win == true ? "(Won)" : "(Lost)") :
+                            (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 200)?.Win == true ? "(Won)" : "(Lost)");
+                        string enemyTeamStatus = playerTeam.First().TeamId == 100 ?
+                            (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 200)?.Win == true ? "(Won)" : "(Lost)") :
+                            (matchDetails.Info.Teams.FirstOrDefault(t => t.TeamId == 100)?.Win == true ? "(Won)" : "(Lost)");
+                        string playerTeamHeader = ($"Your Team {playerTeamStatus}").PadRight(maxNameLen + maxKDALen + maxDamageLen);
+                        string enemyTeamHeader = ($"Enemy Team {enemyTeamStatus}");
+                        statusBox.AppendText($"\n\n{playerTeamHeader}{enemyTeamHeader}\r\n");
+
+                        string separatorLine = new string('-', (maxNameLen + maxKDALen + maxDamageLen) * 2 + 4); // +4 for spacing between teams
+                        statusBox.AppendText($"{separatorLine}\r\n");
+
+                        // Store the original font to revert after bolding
+                        Font originalFont = statusBox.Font;
+                        Font boldFont = new Font(originalFont, FontStyle.Bold);
+
+                        // Player Stats
+                        for (int i = 0; i < 5; i++)
                         {
-                            p1NameAndChamp += " (YOU)";
-                        }
-                        string p1KDA = p1.KDA;
-                        string p1Damage = p1.TotalDamageDealtToChampions.ToString("N0");
+                            var p1 = playerTeam[i];
+                            var p2 = enemyTeam[i];
 
-                        // Format Enemy Team Member
-                        string p2NameAndChamp = $"{p2.SummonerName} ({p2.ChampionName})";
-                        if (p2.Puuid == puuid)
-                        {
-                            p2NameAndChamp += " (YOU)";
-                        }
-                        string p2KDA = p2.KDA;
-                        string p2Damage = p2.TotalDamageDealtToChampions.ToString("N0");
+                            // Format Player Team Member
+                            string p1NameAndChamp = $"{p1.SummonerName} ({p1.ChampionName})";
+                            if (p1.Puuid == puuid)
+                            {
+                                p1NameAndChamp += " (YOU)";
+                            }
+                            string p1KDA = p1.KDA;
+                            string p1Damage = p1.TotalDamageDealtToChampions.ToString("N0");
 
-                        // Recalculate maxNameLen if (YOU) is added to ensure proper padding
-                        int currentMaxNameLen = Math.Max("Summoner (Champion)".Length, matchDetails.Info.Participants.Max(p => $"{p.SummonerName} ({p.ChampionName})" + (p.Puuid == puuid ? " (YOU)" : "")).Length) + 2;
+                            // Format Enemy Team Member
+                            string p2NameAndChamp = $"{p2.SummonerName} ({p2.ChampionName})";
+                            if (p2.Puuid == puuid)
+                            {
+                                p2NameAndChamp += " (YOU)";
+                            }
+                            string p2KDA = p2.KDA;
+                            string p2Damage = p2.TotalDamageDealtToChampions.ToString("N0");
 
-                        // Construct the full lines, padding each part
-                        string p1Line = p1NameAndChamp.PadRight(currentMaxNameLen) +
-                                        p1KDA.PadRight(maxKDALen) +
-                                        p1Damage.PadRight(maxDamageLen);
+                            // Recalculate maxNameLen if (YOU) is added to ensure proper padding
+                            int currentMaxNameLen = Math.Max("Summoner (Champion)".Length, matchDetails.Info.Participants.Max(p => $"{p.SummonerName} ({p.ChampionName})" + (p.Puuid == puuid ? " (YOU)" : "")).Length) + 2;
 
-                        string p2Line = p2NameAndChamp.PadRight(currentMaxNameLen) +
-                                        p2KDA.PadRight(maxKDALen) +
-                                        p2Damage.PadRight(maxDamageLen);
+                            // Construct the full lines, padding each part
+                            string p1Line = p1NameAndChamp.PadRight(currentMaxNameLen) +
+                                            p1KDA.PadRight(maxKDALen) +
+                                            p1Damage.PadRight(maxDamageLen);
 
-                        // Print Player Team Member
-                        if (p1.Puuid == puuid)
-                        {
-                            statusBox.SelectionFont = boldFont;
-                            statusBox.AppendText(p1Line);
-                            statusBox.SelectionFont = originalFont;
-                        }
-                        else
-                        {
-                            statusBox.AppendText(p1Line);
-                        }
-                        
-                        statusBox.AppendText("    "); // Spacing between teams
+                            string p2Line = p2NameAndChamp.PadRight(currentMaxNameLen) +
+                                            p2KDA.PadRight(maxKDALen) +
+                                            p2Damage.PadRight(maxDamageLen);
 
-                        // Print Enemy Team Member
-                        if (p2.Puuid == puuid)
-                        {
-                            statusBox.SelectionFont = boldFont;
-                            statusBox.AppendText(p2Line);
-                            statusBox.SelectionFont = originalFont;
+                            // Print Player Team Member
+                            if (p1.Puuid == puuid)
+                            {
+                                statusBox.SelectionFont = boldFont;
+                                statusBox.AppendText(p1Line);
+                                statusBox.SelectionFont = originalFont;
+                            }
+                            else
+                            {
+                                statusBox.AppendText(p1Line);
+                            }
+                            
+                            statusBox.AppendText("    "); // Spacing between teams
+
+                            // Print Enemy Team Member
+                            if (p2.Puuid == puuid)
+                            {
+                                statusBox.SelectionFont = boldFont;
+                                statusBox.AppendText(p2Line);
+                                statusBox.SelectionFont = originalFont;
+                            }
+                            else
+                            {
+                                statusBox.AppendText(p2Line);
+                            }
+                            statusBox.AppendText($"\r\n");
                         }
-                        else
-                        {
-                            statusBox.AppendText(p2Line);
-                        }
-                        statusBox.AppendText($"\r\n");
+                        statusBox.AppendText($"\r\n"); // Add an extra newline at the end
                     }
-                    statusBox.AppendText($"\r\n"); // Add an extra newline at the end
                 }
             }
         }

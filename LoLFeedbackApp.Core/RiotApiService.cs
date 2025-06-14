@@ -38,7 +38,6 @@ namespace LoLFeedbackApp.Core
             try
             {
                 var url = $"{AMERICAS_URL}/riot/account/v1/accounts/by-riot-id/{gameName}/{tagLine}";
-                _statusBox.AppendText($"Looking up correct PUUID from: {url}\r\n");
 
                 var response = await _httpClient.GetAsync(url);
                 var content = await response.Content.ReadAsStringAsync();
@@ -48,7 +47,6 @@ namespace LoLFeedbackApp.Core
                     throw new Exception($"Failed to get account by Riot ID. Status: {response.StatusCode}, Response: {content}");
                 }
 
-                _statusBox.AppendText($"Account lookup successful: {content}\r\n");
                 return JsonSerializer.Deserialize<AccountDto>(content);
             }
             catch (Exception ex)
@@ -87,6 +85,55 @@ namespace LoLFeedbackApp.Core
             }
         }
 
+        public async Task<TimelineFrameDto?> GetMatchFrameAtOneMinute(string matchId)
+        { 
+            if (string.IsNullOrEmpty(matchId))
+            {
+                _statusBox.AppendText("Error: Match ID is null or empty, cannot get timeline.\r\n");
+                return null;
+            }
+
+            try
+            {
+                // Construct the URL for the timeline endpoint
+                var url = $"{AMERICAS_URL}/lol/match/v5/matches/{matchId}/timeline";
+                //_statusBox.AppendText($"Fetching match timeline from: {url}\r\n");
+
+                var response = await _httpClient.GetAsync(url);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Failed to get match timeline. Status: {response.StatusCode}, Response: {content}");
+                }
+
+                var timelineData = JsonSerializer.Deserialize<MatchTimelineDto>(content);
+                if (timelineData == null)
+                {
+                    _statusBox.AppendText("Failed to deserialize timeline data.\r\n");
+                    return null;
+                }
+
+                // The timeline contains a list of frames, recorded each minute.
+                // Index 0 = 0 minute mark (start of game)
+                // Index 1 = 1 minute mark
+                if (timelineData.Info.Frames.Count > 1)
+                {
+                    _statusBox.AppendText("Successfully parsed timeline. Returning frame for 1-minute mark.\r\n");
+                    return timelineData.Info.Frames[1]; // Return the frame for the 1-minute mark
+                }
+                else
+                {
+                    _statusBox.AppendText("Match was too short or timeline data is unavailable.\r\n");
+                    return null;
+                }
+            }
+            catch (Exception ex)
+            {
+                _statusBox.AppendText($"Error getting match timeline: {ex.Message}\r\n");
+                return null;
+            }
+        }
         public async Task<MatchDto?> GetMatchDetails(string matchId)
         {
             try
@@ -107,6 +154,36 @@ namespace LoLFeedbackApp.Core
             catch (Exception ex)
             {
                 _statusBox.AppendText($"Error getting match details: {ex.Message}\r\n");
+                return null;
+            }
+        }
+
+        public async Task<MatchTimelineDto?> GetMatchTimeline(string matchId)
+        {
+            if (string.IsNullOrEmpty(matchId))
+            {
+                _statusBox.AppendText("Error: Match ID is null or empty, cannot get timeline.\r\n");
+                return null;
+            }
+
+            try
+            {
+                var url = $"{AMERICAS_URL}/lol/match/v5/matches/{matchId}/timeline";
+                _statusBox.AppendText($"Fetching match timeline from: {url}\r\n");
+
+                var response = await _httpClient.GetAsync(url);
+                var content = await response.Content.ReadAsStringAsync();
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    throw new Exception($"Failed to get match timeline. Status: {response.StatusCode}, Response: {content}");
+                }
+
+                return JsonSerializer.Deserialize<MatchTimelineDto>(content);
+            }
+            catch (Exception ex)
+            {
+                _statusBox.AppendText($"Error getting match timeline: {ex.Message}\r\n");
                 return null;
             }
         }
