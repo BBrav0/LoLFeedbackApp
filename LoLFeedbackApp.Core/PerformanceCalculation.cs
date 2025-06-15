@@ -5,16 +5,16 @@ using System.Text.Json.Serialization;
 
 namespace LoLFeedbackApp.Core
 {
-        //1 MIN check kills deaths gold, before minions spawn, lanes irrelevant
-        //5 MIN check kills death gold, lanes very important
-        //10 MIN check kills death gold, lanes important, compare objectives
-        //14 MIN check gold, TURRETS SUPER IMPORTANT PLATING FALLS AFTER, objectives check, less important, grubs and drag, check cs for crazy differences
-        //20 mins, check gold kills death, check objectives, check for crazy cs differences
-        //25 mins, check gold kills deaths, check objectives, check for crazy cs differences, check for tier2/tier3 turrets being down
-        //30 mins, inhib comparison/objectives final check
-/// <summary>
-/// Holds a precise snapshot of a player's stats at a specific moment in a match.
-/// </summary>
+    //1 MIN check kills deaths gold, before minions spawn, lanes irrelevant
+    //5 MIN check kills death gold, lanes very important
+    //10 MIN check kills death gold, lanes important, compare objectives
+    //14 MIN check gold, TURRETS SUPER IMPORTANT PLATING FALLS AFTER, objectives check, less important, grubs and drag, check cs for crazy differences
+    //20 mins, check gold kills death, check objectives, check for crazy cs differences
+    //25 mins, check gold kills deaths, check objectives, check for crazy cs differences, check for tier2/tier3 turrets being down
+    //30 mins, inhib comparison/objectives final check
+    /// <summary>
+    /// Holds a precise snapshot of a player's stats at a specific moment in a match.
+    /// </summary>
     public class PlayerStatsAtTime
     {
         // Static info about the player
@@ -55,7 +55,6 @@ namespace LoLFeedbackApp.Core
             if (mainUserParticipant == null)
                 return "Could not find user in the match.";
 
-
             int userTeamId = mainUserParticipant.TeamId;
 
             // Analyze key timestamps
@@ -70,20 +69,29 @@ namespace LoLFeedbackApp.Core
             foreach (var minute in timestamps)
             {
                 List<PlayerStatsAtTime> pstats = GetPlayerStatsAtMinute(minute, matchDetails, matchTimeline);
+
                 PlayerStatsAtTime? me = pstats.FirstOrDefault(p => p.SummonerName == mainUserParticipant.SummonerName);
                 if (me == null) continue;
-            
-                switch (minute) {
+
+                PlayerStatsAtTime? laner = pstats.FirstOrDefault(p => p.Lane == mainUserParticipant.Lane);
+                if (laner == null) continue;
+
+                switch (minute)
+                {
                     case 1:
                         int allyKills = 0;
                         int enemKills = 0;
-                        foreach(var player in pstats) {
-                            if (player.Kills > 0) {
-                                if(player.TeamId==1) {
-                                    allyKills+=player.Kills;
+                        foreach(var player in pstats)
+                        {
+                            if (player.Kills > 0)
+                            {
+                                if(player.TeamId == 1)
+                                {
+                                    allyKills += player.Kills;
                                 }
-                                else {
-                                    enemKills+=player.Kills;
+                                else
+                                {
+                                    enemKills += player.Kills;
                                 }
                             }
                         }
@@ -91,27 +99,34 @@ namespace LoLFeedbackApp.Core
                         int ks = me.Kills;
                         int assists = me.Assists;
 
-                        for (int i = 0; i<allyKills; i++) {
-                            if (ks > 0) {
+                        for (int i = 0; i < allyKills; i++)
+                        {
+                            if (ks > 0)
+                            {
                                 ks--;
-                                sis[0]+=25;
+                                sis[0] += 25;
                             }
-                            else if (assists > 0) {
+                            else if (assists > 0)
+                            {
                                 assists--;
-                                sis[0]+=12.5;
-                                tis[0]+=12.5;
+                                sis[0] += 12.5;
+                                tis[0] += 12.5;
                             }
-                            else {
-                                tis[0]+=25;
+                            else
+                            {
+                                tis[0] += 25;
                             }
                         }
-                        for (int i = 0; i<enemKills; i++) {
-                            if (ds > 0) {
+                        for (int i = 0; i < enemKills; i++)
+                        {
+                            if (ds > 0)
+                            {
                                 ds--;
-                                sis[0]-=25;
+                                sis[0] -= 25;
                             }
-                            else {
-                                tis[0]-=25;
+                            else
+                            {
+                                tis[0] -= 25;
                             }
                         }
 
@@ -120,16 +135,290 @@ namespace LoLFeedbackApp.Core
                         report.AppendLine($"Team Score: {tis[0]}/100");
                         break;
 
+
+
+
+
+
+
+
+
                     case 5:
+                        allyKills = 0;
+                        enemKills = 0;
+                        foreach(var player in pstats)
+                        {
+                            //kills check
+                            if(player.TeamId == 1)
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    allyKills += player.Kills;
+                                }
+                            }
+                            else
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    enemKills += player.Kills;
+                                    if (player == laner)
+                                    {
+                                        sis[1] -= 3;
+                                    }
+                                }
+                            }
+                        }
+                        ds = me.Deaths;
+                        ks = me.Kills;
+                        assists = me.Assists;
+
+                        for (int i = 0; i < allyKills; i++)
+                        {
+                            if (ks > 0)
+                            {
+                                ks--;
+                                sis[1] += 25;
+                            }
+                            else if (assists > 0)
+                            {
+                                assists--;
+                                sis[1] += 7.5;
+                                tis[1] += 7.5;
+                            }
+                            else
+                            {
+                                tis[1] += 25;
+                            }
+                        }
+                        for (int i = 0; i < enemKills; i++)
+                        {
+                            if (ds > 0)
+                            {
+                                ds--;
+                                sis[1] -= 15;
+                            }
+                            else
+                            {
+                                tis[1] -= 15;
+                            }
+                        }
+
+                        report.AppendLine("MINUTE 5 STATS (50 baseline):");
+                        report.AppendLine($"Your Score: {sis[1]}/100");
+                        report.AppendLine($"Team Score: {tis[1]}/100");
                         break;
 
+
+
+
+
+
+
+
+
+
                     case 10:
+                        allyKills = 0;
+                        enemKills = 0;
+                        foreach(var player in pstats)
+                        {
+                            //kills check
+                            if(player.TeamId == 1)
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    allyKills += player.Kills;
+                                }
+                            }
+                            else
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    enemKills += player.Kills;
+                                    if (player == laner)
+                                    {
+                                        sis[2] -= 2;
+                                    }
+                                }
+                            }
+                        }
+                        ds = me.Deaths;
+                        ks = me.Kills;
+                        assists = me.Assists;
+
+                        for (int i = 0; i < allyKills; i++)
+                        {
+                            if (ks > 0)
+                            {
+                                ks--;
+                                sis[2] += 15;
+                            }
+                            else if (assists > 0)
+                            {
+                                assists--;
+                                sis[2] += 7.5;
+                                tis[2] += 7.5;
+                            }
+                            else
+                            {
+                                tis[2] += 15;
+                            }
+                        }
+                        for (int i = 0; i < enemKills; i++)
+                        {
+                            if (ds > 0)
+                            {
+                                ds--;
+                                sis[2] -= 15;
+                            }
+                            else
+                            {
+                                tis[2] -= 15;
+                            }
+                        }
+
+                        report.AppendLine("MINUTE 10 STATS (50 baseline):");
+                        report.AppendLine($"Your Score: {sis[2]}/100");
+                        report.AppendLine($"Team Score: {tis[2]}/100");
                         break;
 
                     case 14:
+                        allyKills = 0;
+                        enemKills = 0;
+                        foreach(var player in pstats)
+                        {
+                            //kills check
+                            if(player.TeamId == 1)
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    allyKills += player.Kills;
+                                }
+                            }
+                            else
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    enemKills += player.Kills;
+                                    if (player == laner)
+                                    {
+                                        sis[3] -= 2;
+                                    }
+                                }
+                            }
+                        }
+                        ds = me.Deaths;
+                        ks = me.Kills;
+                        assists = me.Assists;
+
+                        for (int i = 0; i < allyKills; i++)
+                        {
+                            if (ks > 0)
+                            {
+                                ks--;
+                                sis[3] += 15;
+                            }
+                            else if (assists > 0)
+                            {
+                                assists--;
+                                sis[3] += 7.5;
+                                tis[3] += 7.5;
+                            }
+                            else
+                            {
+                                tis[3] += 15;
+                            }
+                        }
+                        for (int i = 0; i < enemKills; i++)
+                        {
+                            if (ds > 0)
+                            {
+                                ds--;
+                                sis[3] -= 15;
+                            }
+                            else
+                            {
+                                tis[3] -= 15;
+                            }
+                        }
+
+                        report.AppendLine("MINUTE 14 STATS (50 baseline):");
+                        report.AppendLine($"Your Score: {sis[3]}/100");
+                        report.AppendLine($"Team Score: {tis[3]}/100");
                         break;
 
+
+
+
+
+
+
+
+
+
                     case 20:
+                        allyKills = 0;
+                        enemKills = 0;
+                        foreach(var player in pstats)
+                        {
+                            //kills check
+                            if(player.TeamId == 1)
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    allyKills += player.Kills;
+                                }
+                            }
+                            else
+                            {
+                                if (player.Kills > 0)
+                                {
+                                    enemKills += player.Kills;
+                                    if (player == laner)
+                                    {
+                                        sis[4] -= 2;
+                                    }
+                                }
+                            }
+                        }
+                        ds = me.Deaths;
+                        ks = me.Kills;
+                        assists = me.Assists;
+
+                        for (int i = 0; i < allyKills; i++)
+                        {
+                            if (ks > 0)
+                            {
+                                ks--;
+                                sis[4] += 10;
+                            }
+                            else if (assists > 0)
+                            {
+                                assists--;
+                                sis[4] += 5;
+                                tis[4] += 5;
+                            }
+                            else
+                            {
+                                tis[4] += 10;
+                            }
+                        }
+                        for (int i = 0; i < enemKills; i++)
+                        {
+                            if (ds > 0)
+                            {
+                                ds--;
+                                sis[4] -= 10;
+                            }
+                            else
+                            {
+                                tis[4] -= 10;
+                            }
+                        }
+
+                        report.AppendLine("MINUTE 20 STATS (50 baseline):");
+                        report.AppendLine($"Your Score: {sis[4]}/100");
+                        report.AppendLine($"Team Score: {tis[4]}/100");
                         break;
                 }
             }
@@ -228,7 +517,6 @@ namespace LoLFeedbackApp.Core
             return statsDictionary.Values.ToList();
         }
     }
-
 
     // ##################################################################
     // ## RIOT API DATA TRANSFER OBJECTS (DTOs)
